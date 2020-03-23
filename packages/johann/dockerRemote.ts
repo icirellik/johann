@@ -1,8 +1,8 @@
-import DockerRepo from './dockerImage';
 import fetch, { Headers } from 'node-fetch';
 import { URL } from 'url';
+import DockerImage from './dockerImage';
 
-export async function remoteDigest(repo: DockerRepo, authToken: string): Promise<string> {
+export async function remoteDigest(repo: DockerImage, authToken: string): Promise<string> {
   const headers = new Headers();
   headers.append('Authorization', `Bearer ${authToken}`);
   headers.append('Accept', 'application/vnd.oci.image.index.v1+json');

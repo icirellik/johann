@@ -1,10 +1,12 @@
 export const DEFAULT_REGISTRY = 'registry-1.docker.io';
 export const DEFAULT_REGISTRY_SERVICE = `https://${DEFAULT_REGISTRY}`;
 
-export default class DockerRepo {
+const DEFAULT_REPOSITORY = 'library';
+
+export default class DockerImage {
   constructor(
     private _service: string | null,
-    private _organization: string | null,
+    private _repository: string | null,
     private _image: string,
     private _tag = 'latest',
   ) { }
@@ -13,23 +15,19 @@ export default class DockerRepo {
     return this._service ? `https://${this._service}` : DEFAULT_REGISTRY_SERVICE;
   }
 
-  public get service(): string {
-    return this._service ?? DEFAULT_REGISTRY;
-  }
-
   public get image(): string {
-    return (this._organization) ?
-      `${this._organization}/${this._image}` :
-      `library/${this._image}`
+    return (this._repository) ?
+      `${this._repository}/${this._image}` :
+      `${DEFAULT_REPOSITORY}/${this._image}`
   }
 
   public get fullImage(): string {
-    if (this.registry === DEFAULT_REGISTRY_SERVICE && this._organization) {
-      return `${this._organization}/${this._image}`;
+    if (this.registry === DEFAULT_REGISTRY_SERVICE && this._repository) {
+      return `${this._repository}/${this._image}`;
     } else if (this.registry === DEFAULT_REGISTRY_SERVICE) {
       return this._image;
-    } else if (this._service && this._organization) {
-      return `${this._service}/${this._organization}/${this._image}`;
+    } else if (this._service && this._repository) {
+      return `${this._service}/${this._repository}/${this._image}`;
     }
     return this._image;
   }
@@ -38,8 +36,8 @@ export default class DockerRepo {
     return this._tag;
   }
 
-  static from (slug: string): DockerRepo {
-    const [ imageSlug, tag ] = slug.split(':');
+  static from (containerSlug: string): DockerImage {
+    const [ imageSlug, tag ] = containerSlug.split(':');
 
     const slugParts = imageSlug.split('/')
     if (slugParts.length < 1) {
@@ -47,13 +45,17 @@ export default class DockerRepo {
     }
 
     const image = slugParts.pop()
-    const organization = slugParts.pop() ?? null
+    const repository = slugParts.pop() ?? null
     const registry = slugParts.pop() ?? null
 
-    return new DockerRepo(
+    if (!image) {
+      throw new Error(`The image name could not be parsed. ${containerSlug}`);
+    }
+
+    return new DockerImage(
       registry,
-      organization,
-      image!,
+      repository,
+      image,
       !tag === null? 'latest' : tag,
     );
   }
@@ -61,7 +63,6 @@ export default class DockerRepo {
   public toString(): string {
     let rv = '';
     rv += `Registry ${this.registry}\n`
-    rv += `Service  ${this.service}\n`
     rv += `Image    ${this.image}\n`
     rv += `Tag      ${this.tag}\n`
     return rv;

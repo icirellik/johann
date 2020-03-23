@@ -3,7 +3,7 @@ import fetch from 'node-fetch';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import DockerRepo from './dockerImage';
+import DockerImage from './dockerImage';
 
 const DOCKER_HOME = path.join(os.homedir(), '.docker');
 const DOCKER_CONFIG = path.join(DOCKER_HOME, 'config.json');
@@ -43,7 +43,7 @@ function readDockerConfig(): void {
   }
 }
 
-export async function getAuthUrl(repo: DockerRepo): Promise<AuthRealm> {
+export async function getAuthEndpoint(repo: DockerImage): Promise<AuthRealm> {
   const authUrl = new URL(`${repo.registry}/v2/`);
   try {
     const response = await fetch(authUrl.toString());
@@ -64,15 +64,18 @@ export async function getAuthUrl(repo: DockerRepo): Promise<AuthRealm> {
   }
 }
 
-export async function getAuthToken(authRealm: AuthRealm, repo: DockerRepo): Promise<string> {
+export async function getAuthToken(authRealm: AuthRealm, repo: DockerImage): Promise<string> {
   const headers = {};
   const authUrl = new URL(authRealm.realm);
   authUrl.searchParams.append('service', authRealm.token);
   authUrl.searchParams.append('scope', `repository:${repo.image}:pull`);
 
   if (SERVICE_MAP.has(authRealm.token)) {
-    authUrl.searchParams.append('account', SERVICE_MAP.get(authRealm.token)!.account);
-    headers['Authorization'] = `Basic ${SERVICE_MAP.get(authRealm.token)!.header}`;
+    const serviceAuth = SERVICE_MAP.get(authRealm.token);
+    if (serviceAuth) {
+      authUrl.searchParams.append('account', serviceAuth.account);
+      headers['Authorization'] = `Basic ${serviceAuth.header}`;
+    }
   }
 
   try {
