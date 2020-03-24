@@ -1,8 +1,9 @@
-import fetch, { Headers } from 'node-fetch';
+import { Headers } from 'node-fetch';
 import { URL } from 'url';
-import DockerImage from './dockerImage';
+import DockerImage from './image';
+import { fetchViaProxy } from '../util/fetch';
 
-export async function remoteDigest(repo: DockerImage, authToken: string): Promise<string> {
+export async function remoteDigest(image: DockerImage, authToken: string): Promise<string> {
   const headers = new Headers();
   headers.append('Authorization', `Bearer ${authToken}`);
   headers.append('Accept', 'application/vnd.oci.image.index.v1+json');
@@ -12,10 +13,10 @@ export async function remoteDigest(repo: DockerImage, authToken: string): Promis
   headers.append('Accept', 'application/vnd.docker.distribution.manifest.v2+json');
   headers.append('Accept', 'application/vnd.docker.distribution.manifest.list.v2+json');
 
-  const registryUrl = new URL(`${repo.registry}/v2/${repo.image}/manifests/${repo.tag}`);
-  const response = await fetch(registryUrl.toString(), {
+  const registryUrl = new URL(`${image.registry}/v2/${image.repository}/${image.image}/manifests/${image.tag}`);
+  const response = await fetchViaProxy(registryUrl.toString(), {
     headers,
   });
   const digest = response.headers.get('docker-content-digest');
-  return `${repo.fullImage}@${digest}`;
+  return `${image.fullImage}@${digest}`;
 }

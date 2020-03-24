@@ -11,7 +11,6 @@ const BYTE_UNITS = [
 ];
 
 export default function prettyBytes(bytes: number, level = 0, negated = false): string {
-
   const negative = negated || bytes < 0;
   const normalizedBytes = Math.abs(bytes);
 

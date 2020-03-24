@@ -5,7 +5,7 @@ export interface Options {
   echo?: boolean;
 }
 
-export const dockerCommand = async (
+export const docker = async (
   command: string,
   options: Options = {
     echo: false,
@@ -36,7 +36,7 @@ export const dockerCommand = async (
             ),
           )
         }
-        resolve(stdout)
+        resolve(stdout);
       },
     )
 

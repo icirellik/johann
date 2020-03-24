@@ -1,7 +1,10 @@
-dist/
 data/
 node_modules/
+packages/
 
+.eslintrc
+.gitignore
+*.js.map
 NOTES.md
 
 # npm package
