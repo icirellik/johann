@@ -10,7 +10,7 @@
     "type": "git",
     "url": "git+https://github.com/icirellik/johann.git"
   },
-  "author": "icirellik@gmail.com",
+  "author": "npm@hometato.com",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/icirellik/johann/issues"
@@ -31,7 +31,11 @@
   },
   "dependencies": {
     "chalk": "^3.0.0",
+    "es6-promise-pool": "^2.5.0",
+    "http-proxy-agent": "^4.0.1",
+    "https-proxy-agent": "^5.0.0",
     "js-yaml": "^3.13.1",
+    "keytar": "^5.4.0",
     "node-fetch": "^2.6.0"
   }
 }

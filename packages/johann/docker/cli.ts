@@ -5,7 +5,7 @@ export interface Options {
   echo?: boolean;
 }
 
-export const dockerCommand = async (
+export const docker = async (
   command: string,
   options: Options = {
     echo: false,
@@ -36,18 +36,22 @@ export const dockerCommand = async (
             ),
           )
         }
-        resolve(stdout)
+        resolve(stdout);
       },
     )
 
     if (options.echo) {
-      childProcess.stdout && childProcess.stdout.on('data', (chunk: any) => {
-        process.stdout.write(chunk.toString());
-      })
+      childProcess.stdout && childProcess.stdout.on('data', (chunk: unknown) => {
+        if (chunk instanceof String) {
+          process.stdout.write(chunk.toString());
+        }
+      });
 
-      childProcess.stderr && childProcess.stderr.on('data', (chunk: any) => {
-        process.stderr.write(chunk.toString());
-      })
+      childProcess.stderr && childProcess.stderr.on('data', (chunk: unknown) => {
+        if (chunk instanceof String) {
+          process.stderr.write(chunk.toString());
+        }
+      });
     }
   })
   return raw;
