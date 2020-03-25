@@ -54,7 +54,7 @@ async function securityStore(service: string): Promise<ServiceCredentials | null
       return auth;
     }
   }
-  if (credentialStore === 'osxkeychain') {
+  if (credentialStore === 'osxkeychain' || credentialStore === 'desktop') {
     try {
       const internetPassword = await osxkeychain(service);
       const buffer = Buffer.from(`${internetPassword.account}:${internetPassword.password}`, 'utf-8');
