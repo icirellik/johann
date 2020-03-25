@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import PromisePool from 'es6-promise-pool';
 import minimist from 'minimist';
+import os from 'os';
 import util from 'util';
 import DockerImage from './docker/image';
 import { getAuthEndpoint, getAuthToken } from './docker/authentication';
@@ -92,6 +93,14 @@ async function pullIfNewer(containerSlug: string, index: number, total: number):
 
     // Remove previous image.
     removedBytes = await dockerSizeBytes(inspect);
+
+    // Next steps:
+    // rename
+    // pull
+    // rmi
+
+    // track image layers + size
+
     if (removedBytes !== 0) {
       partial(lpad(`[${index + 1}/${total}]`, 10) + ' ' + chalk.cyan(`Removing old image. ${image.fullImage}:${image.tag}\n`), logId);
       await dockerRemoveImage(image);
@@ -155,7 +164,7 @@ async function yaml(files: string[]): Promise<void> {
 
   // Create a pool.
   const promiseIterator = promiseProducer();
-  const pool = new PromisePool<DockerRefreshStats>(promiseIterator as any, 4);
+  const pool = new PromisePool<DockerRefreshStats>(promiseIterator as any, os.cpus().length - 1);
 
   // Start the pool.
   const poolPromise = pool.start();
