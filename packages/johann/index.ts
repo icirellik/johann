@@ -1,6 +1,7 @@
-import util from 'util';
 import chalk from 'chalk';
 import PromisePool from 'es6-promise-pool';
+import minimist from 'minimist';
+import util from 'util';
 import DockerImage from './docker/image';
 import { getAuthEndpoint, getAuthToken } from './docker/authentication';
 import { loadYamlToJson, parseImageNames } from './dockerCompose';
@@ -137,9 +138,12 @@ function help(): void {
   process.exit(1);
 }
 
-async function yaml(file: string): Promise<void> {
-  const yamlJson = loadYamlToJson(file);
-  const containers = parseImageNames(yamlJson);
+async function yaml(files: string[]): Promise<void> {
+  let containers: string[] = [];
+  for (const file of files) {
+    const yamlJson = loadYamlToJson(file);
+    containers = containers.concat(parseImageNames(yamlJson));
+  }
   const stats = new DockerRefreshStats();
 
   const promiseProducer = function* (): Generator<unknown, Promise<DockerRefreshStats> | void> {
@@ -168,29 +172,22 @@ async function yaml(file: string): Promise<void> {
   })
 }
 
-async function commander(command: string, file: string): Promise<void> {
+async function commander(command: string, files: string[]): Promise<void> {
   switch (command) {
     case 'yaml':
-      await yaml(file);
+      await yaml(files);
       break;
     default:
       help();
   }
 }
 
-async function main(argv: string[]): Promise<void> {
-  if (argv.length === 4) {
-    await commander(argv[2], argv[3])
-  } else if (argv.length === 5) {
-    await commander(argv[3], argv[4])
-  } else {
-    help();
-  }
-}
-
 export async function run(): Promise<void> {
   try {
-    await main(process.argv);
+    const args = minimist(process.argv.slice(2), {
+      default: { command: 'yaml' },
+    });
+    await commander(args.command, args._);
   } catch (err) {
     console.log(err.message);
     process.exit(1);
