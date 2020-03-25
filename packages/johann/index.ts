@@ -49,6 +49,18 @@ class DockerRefreshStats {
   }
 }
 
+function highlightSize(bytes: number): string {
+  if (bytes > 1000000000) {
+    return chalk.bgRed(prettyBytes(bytes));
+  } else if (bytes > 500000000) {
+    return chalk.red(prettyBytes(bytes));
+  } else if (bytes > 100000000) {
+    return chalk.yellow(prettyBytes(bytes));
+  } else {
+    return chalk.green(prettyBytes(bytes));
+  }
+}
+
 /**
  * Using a docker slug. Checks to see if there is a different remote image and
  * pulls it down is nescesary.
@@ -62,7 +74,7 @@ async function pullIfNewer(containerSlug: string, index: number, total: number):
   const image = DockerImage.from(containerSlug);
 
   // Get the authentication token for reading the remote repository.
-  const authEndpoint = await getAuthEndpoint(image);
+  const authEndpoint = await getAuthEndpoint(image.registry);
   const authToken = await getAuthToken(authEndpoint, image);
 
   // Stats
@@ -106,7 +118,7 @@ async function pullIfNewer(containerSlug: string, index: number, total: number):
   } else {
     bytesSteady = await dockerSizeBytes(inspect);
     partial(
-      util.format('%s %s\n', lpad(chalk.bgGreen('In Sync'), 25), lpad(prettyBytes(bytesSteady), 10)),
+      util.format('%s %s\n', lpad(chalk.greenBright('In Sync'), 25), lpad(highlightSize(bytesSteady), 10)),
       logId,
     );
     flush(logId);
@@ -129,13 +141,6 @@ async function yaml(file: string): Promise<void> {
   const yamlJson = loadYamlToJson(file);
   const containers = parseImageNames(yamlJson);
   const stats = new DockerRefreshStats();
-
-  // for (let i = 0; i < containers.length; i++) {
-  //   const container = containers[i];
-  //   const currentStats = await pullIfNewer(container, i , containers.length);
-  //   stats.accumulate(currentStats);
-  // }
-  // stats.logResults();
 
   const promiseProducer = function* (): Generator<unknown, Promise<DockerRefreshStats> | void> {
     for (let i = 0; i < containers.length; i++) {
