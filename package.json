@@ -1,6 +1,6 @@
 {
   "name": "johann",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A docker compose manger, name after the fisherman and composer Johann Fischer",
   "main": "dist/index.js",
   "scripts": {
