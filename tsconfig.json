@@ -38,7 +38,6 @@
       "./packages/johann/index.ts",
     ],
     "include": [
-      "@types",
       "packages/johann/**/*"
     ],
   }
