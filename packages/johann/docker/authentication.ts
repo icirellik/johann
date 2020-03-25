@@ -6,6 +6,7 @@ import { URL } from 'url';
 import DockerImage from './image';
 import { fetchViaProxy } from '../util/fetch';
 import KeychainAccess, { InternetPassword } from '../util/osxkeychain';
+import Mutex from '../util/mutex';
 
 const DOCKER_HOME = path.join(os.homedir(), '.docker');
 const DOCKER_CONFIG = path.join(DOCKER_HOME, 'config.json');
@@ -31,6 +32,8 @@ const DOCKER_CREDENTIALS_KEYCHAIN = 'Docker Credentials';
 
 let credentialStore: string | null = null;
 
+const keychainMutex = new Mutex();
+
 /**
  * Handles accessing the osx credential store (Keychain Access)
  */
@@ -48,6 +51,7 @@ async function osxkeychain(service: string): Promise<InternetPassword> {
  * a docker service.
  */
 async function securityStore(service: string): Promise<ServiceCredentials | null> {
+  await keychainMutex.locked();
   if (SERVICE_MAP.has(service)) {
     const auth = SERVICE_MAP.get(service);
     if (typeof auth !== 'undefined') {
@@ -55,6 +59,7 @@ async function securityStore(service: string): Promise<ServiceCredentials | null
     }
   }
   if (credentialStore === 'osxkeychain' || credentialStore === 'desktop') {
+    await keychainMutex.lock();
     try {
       const internetPassword = await osxkeychain(service);
       const buffer = Buffer.from(`${internetPassword.account}:${internetPassword.password}`, 'utf-8');
@@ -66,11 +71,14 @@ async function securityStore(service: string): Promise<ServiceCredentials | null
       SERVICE_MAP.set(service, credentials);
       return credentials;
     } catch (err) {
-      console.warn(chalk.yellow(`Service not found in osxkeychain: ${service}`));
+      console.warn(chalk.yellow(`Service not found in osxkeychain, authentication will not be used: ${service}`));
       SERVICE_MAP.set(service, null);
       return null
+    } finally {
+      await keychainMutex.unlock();
     }
   }
+
   return null;
 }
 
