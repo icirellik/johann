@@ -7,10 +7,11 @@ import DockerImage from './docker/image';
 import { getAuthEndpoint, getAuthToken } from './docker/authentication';
 import { loadYamlToJson, parseImageNames } from './dockerCompose';
 import { remoteDigest } from './docker/remote';
-import { dockerDigest, dockerPull, dockerRemoveImage, dockerSizeBytes, dockerInspect } from './docker/local';
+import { dockerDigest, dockerPull, dockerRemoveImage, dockerSizeBytes, dockerInspect, dockerTagImage, dockerImageLayers } from './docker/local';
 import { lpad } from './util/lpad';
 import prettyBytes from './util/prettyBytes';
 import { partial, flush } from './util/log';
+import { DockerRefreshStats } from './stats';
 
 /**
  * Compares the remote and local docker digests, returning true if they are
@@ -23,34 +24,11 @@ async function compareDigests(digest: string, otherDigest: string): Promise<bool
   return digest.length > 0 && otherDigest.length > 0 && digest === otherDigest;
 }
 
-class DockerRefreshStats {
-  constructor(
-    public bytesAdded: number = 0,
-    public bytesRemoved: number = 0,
-    public bytesSteady: number = 0,
-    public imagesRefreshed: number = 0
-  ) { }
-
-  public accumulate(stats: DockerRefreshStats): void {
-    this.bytesAdded += stats.bytesAdded;
-    this.bytesRemoved += stats.bytesRemoved;
-    this.bytesSteady += stats.bytesSteady;
-    this.imagesRefreshed += stats.imagesRefreshed;
-  }
-
-  public logResults(): void {
-    console.log('Stats:');
-    console.log('refreshed:', this.imagesRefreshed);
-    console.log(
-      'added:', prettyBytes(this.bytesAdded),
-      'removed:', prettyBytes(this.bytesRemoved),
-      'delta:', prettyBytes(this.bytesAdded - this.bytesRemoved)
-    );
-    console.log('stable:', prettyBytes(this.bytesSteady));
-    console.log('total space used:', prettyBytes(this.bytesSteady + this.bytesAdded));
-  }
-}
-
+/**
+ * Pretty prints and highlights values based on their size.
+ *
+ * @param bytes The number of bytes.
+ */
 function highlightSize(bytes: number): string {
   if (bytes > 1000000000) {
     return chalk.bgRed(prettyBytes(bytes));
@@ -88,28 +66,31 @@ async function pullIfNewer(containerSlug: string, index: number, total: number):
   // Check remote image against local.
   const digest = await remoteDigest(image, authToken);
   const inspect = await dockerInspect(image);
+
   if (!await compareDigests(digest, await dockerDigest(inspect))) {
-    partial(util.format('%s\n', lpad(chalk.bgRed('Out of Sync'), 25)), logId);
+    partial(util.format('%s\n', lpad(chalk.red('Out of Sync'), 25)), logId);
 
     // Remove previous image.
     removedBytes = await dockerSizeBytes(inspect);
 
-    // Next steps:
-    // rename
-    // pull
-    // rmi
-
     // track image layers + size
 
+    let backupImage: DockerImage | null = null;
     if (removedBytes !== 0) {
-      partial(lpad(`[${index + 1}/${total}]`, 10) + ' ' + chalk.cyan(`Removing old image. ${image.fullImage}:${image.tag}\n`), logId);
-      await dockerRemoveImage(image);
+      backupImage = DockerImage.from(`${image.fullImage}:backup`);
+      partial(lpad(`[${index + 1}/${total}]`, 10) + ' ' + chalk.cyan(`Tagging backup image. ${image.fullImage}:${image.tag} -> ${backupImage.fullImage}:${backupImage.tag}\n`), logId);
+      await dockerTagImage(image, 'backup');
     }
 
     // Pull latest image.
     partial(lpad(`[${index + 1}/${total}]`, 10) + ' ' + chalk.cyan(`Pulling new image. ${image.fullImage}:${image.tag}\n`), logId);
     flush(logId);
     await dockerPull(image);
+
+    if (backupImage !== null) {
+      console.log(lpad(`[${index + 1}/${total}]`, 10) + ' ' + chalk.cyan(`Removing old image. ${backupImage.fullImage}:${backupImage.tag}`));
+      await dockerRemoveImage(backupImage);
+    }
 
     // Track updated stats.
     const inspectUpdated = await dockerInspect(image);
@@ -147,56 +128,84 @@ function help(): void {
   process.exit(1);
 }
 
-async function yaml(files: string[]): Promise<void> {
+/**
+ * Refreshes all image that are found in the specified docker-compose files.
+ *
+ * @param files
+ */
+async function refresh(files: string[]): Promise<void> {
   let containers: string[] = [];
   for (const file of files) {
     const yamlJson = loadYamlToJson(file);
     containers = containers.concat(parseImageNames(yamlJson));
   }
-  const stats = new DockerRefreshStats();
 
-  const promiseProducer = function* (): Generator<unknown, Promise<DockerRefreshStats> | void> {
+  const stats = new DockerRefreshStats();
+  let fullFilledCount = 0;
+  let allPromisesCreated = false;
+  function* promiseProducer(): Iterator<Promise<DockerRefreshStats>> {
     for (let i = 0; i < containers.length; i++) {
       const container = containers[i];
       yield pullIfNewer(container, i , containers.length);
     }
+    if (fullFilledCount !== containers.length) {
+      console.log(`There are still ${containers.length - fullFilledCount} refreshes outstanding.`);
+    }
+    allPromisesCreated = true;
   }
 
   // Create a pool.
   const promiseIterator = promiseProducer();
-  const pool = new PromisePool<DockerRefreshStats>(promiseIterator as any, os.cpus().length - 1);
+  const pool = new PromisePool<DockerRefreshStats>(promiseIterator as any,  os.cpus().length - 1);
 
   // Start the pool.
   const poolPromise = pool.start();
 
-  (pool as any).addEventListener('fulfilled', function (event: any) {
+  (pool as any).addEventListener('fulfilled', (event: any) => {
+    fullFilledCount++;
     stats.accumulate(event.data.result);
-  })
+
+    if (allPromisesCreated && containers.length !== fullFilledCount) {
+      console.log(`There are ${containers.length - fullFilledCount} refreshes processing.`);
+    }
+  });
+
+  const errorMessages: string[] = [];
+  (pool as any).addEventListener('rejected', (event: any) => {
+    errorMessages.push(event.data.error.message)
+  });
 
   // Wait for the pool to settle.
-  poolPromise.then(function () {
+  poolPromise.then(() => {
     stats.logResults();
-  }, function (error) {
-    console.log('Some promise rejected: ' + error.message);
-  })
+  });
 }
 
-async function commander(command: string, files: string[]): Promise<void> {
+/**
+ * Determines which command will be executed.
+ *
+ * @param command
+ * @param files
+ */
+async function whatCommand(command: string, files: string[]): Promise<void> {
   switch (command) {
-    case 'yaml':
-      await yaml(files);
+    case 'refresh':
+      await refresh(files);
       break;
     default:
       help();
   }
 }
 
+/**
+ * Main entrypoint, all input here is raw and has yet to be parsed.
+ */
 export async function run(): Promise<void> {
   try {
     const args = minimist(process.argv.slice(2), {
-      default: { command: 'yaml' },
+      default: { command: 'refresh' },
     });
-    await commander(args.command, args._);
+    await whatCommand(args.command, args._);
   } catch (err) {
     console.log(err.message);
     process.exit(1);

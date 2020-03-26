@@ -3,6 +3,9 @@ import DockerImage from './image';
 
 interface DockerInspect {
   RepoDigests: string[];
+  RootFS: {
+    Layers: string[];
+  };
   Size: number;
 }
 
@@ -13,6 +16,9 @@ export async function dockerInspect(image: DockerImage): Promise<DockerInspect> 
   } catch {
     return {
       RepoDigests: [ '' ],
+      RootFS: {
+        Layers: [],
+      },
       Size: 0,
     };
   }
@@ -27,6 +33,10 @@ export function dockerSizeBytes(inspect: DockerInspect): number {
   return inspect.Size
 }
 
+export function dockerImageLayers(inspect: DockerInspect): string[] {
+  return inspect.RootFS.Layers;
+}
+
 export async function dockerPull(image: DockerImage): Promise<void> {
   await docker(`pull ${image.fullImage}:${image.tag}`, {
     echo: false,
@@ -39,7 +49,21 @@ export async function dockerRemoveImage(image: DockerImage): Promise<void> {
       echo: false,
     });
   } catch {
-    // TODO: We don't currently care that this fails.
+    console.warn('Failed to remove image');
+  }
+}
+
+/**
+ * Tags a docker image with another tag.
+ *
+ * @param image The current image.
+ * @param tag The new tag name.
+ */
+export async function dockerTagImage(image: DockerImage, tag: string): Promise<void> {
+  try {
+    await docker(`tag ${image.fullImage}:${image.tag} ${image.fullImage}:${tag}`);
+  } catch {
+    throw new Error('Failed to rename image.');
   }
 }
 
