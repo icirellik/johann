@@ -3,7 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { URL } from 'url';
-import DockerImage from './image';
+import DockerId from './image';
 import { fetchViaProxy } from '../util/fetch';
 import KeychainAccess, { InternetPassword } from '../util/osxkeychain';
 import Mutex from '../util/mutex';
@@ -166,7 +166,7 @@ export async function getAuthEndpoint(registry: string): Promise<AuthEndpoint> {
 /**
  *
  */
-export async function getAuthToken(authRealm: AuthEndpoint, image: DockerImage): Promise<string> {
+export async function getAuthToken(authRealm: AuthEndpoint, image: DockerId): Promise<string> {
   const headers = {};
   const authUrl = new URL(authRealm.url);
   authUrl.searchParams.append('service', authRealm.serviceToken);

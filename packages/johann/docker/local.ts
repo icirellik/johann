@@ -1,7 +1,7 @@
 import { docker } from './cli';
-import DockerImage from './image';
+import DockerId from './image';
 
-interface DockerInspect {
+export interface DockerInspect {
   RepoDigests: string[];
   RootFS: {
     Layers: string[];
@@ -9,10 +9,9 @@ interface DockerInspect {
   Size: number;
 }
 
-export async function dockerInspect(image: DockerImage): Promise<DockerInspect> {
+export async function dockerInspect(id: DockerId): Promise<DockerInspect> {
   try {
-    // TODO: Remove casting
-    return JSON.parse(await docker(`inspect --format "{{json .}}" ${image.fullImage}:${image.tag}`)) as DockerInspect;
+    return JSON.parse(await docker(`inspect --format '{{ json . }}' ${id.fullImage}:${id.tag}`)) as DockerInspect;
   } catch {
     return {
       RepoDigests: [ '' ],
@@ -37,40 +36,107 @@ export function dockerImageLayers(inspect: DockerInspect): string[] {
   return inspect.RootFS.Layers;
 }
 
-export async function dockerPull(image: DockerImage): Promise<void> {
-  await docker(`pull ${image.fullImage}:${image.tag}`, {
-    echo: false,
-  });
+/**
+ * Pulls a docker image from a remote repository.
+ *
+ * @param id
+ */
+export async function dockerPull(id: DockerId): Promise<void> {
+  try {
+    await docker(`pull ${id.fullImage}:${id.tag}`);
+  } catch {
+    throw new Error(`Failed to load 'pull' for ${id.fullImage}:${id.tag}`);
+  }
 }
 
-export async function dockerRemoveImage(image: DockerImage): Promise<void> {
+/**
+ *  Removes an image.
+ *
+ * @param id
+ */
+export async function dockerRemoveImage(id: DockerId): Promise<void> {
   try {
-    await docker(`rmi ${image.fullImage}:${image.tag}`, {
-      echo: false,
-    });
+    await docker(`rmi ${id.fullImage}:${id.tag}`);
   } catch {
-    console.warn('Failed to remove image');
+    throw new Error(`Failed to load 'rmi' for ${id.fullImage}:${id.tag}`);
   }
 }
 
 /**
  * Tags a docker image with another tag.
  *
- * @param image The current image.
+ * @param id The current docker image.
  * @param tag The new tag name.
  */
-export async function dockerTagImage(image: DockerImage, tag: string): Promise<void> {
+export async function dockerTagImage(id: DockerId, tag: string): Promise<void> {
   try {
-    await docker(`tag ${image.fullImage}:${image.tag} ${image.fullImage}:${tag}`);
+    await docker(`tag ${id.fullImage}:${id.tag} ${id.fullImage}:${tag}`);
   } catch {
-    throw new Error('Failed to rename image.');
+    throw new Error(`Failed to load 'tag' for ${id.fullImage}:${id.tag}`);
   }
 }
 
-export async function dockerImageSize(image: DockerImage): Promise<string> {
+export interface DockerImage {
+  Containers: string;
+  CreatedAt: string;
+  CreatedSince: string;
+  Digest: string;
+  ID: string;
+  Repository: string;
+  SharedSize: string;
+  Size: string;
+  Tag: string;
+  UniqueSize: string;
+  VirtualSize: string;
+}
+
+/**
+ * Reads a single docker images metadata.
+ *
+ * @param id
+ */
+export async function dockerImage(id: DockerId): Promise<DockerImage> {
   try {
-    const size = await docker(`image ls --format '{{ .Size }}' ${image.fullImage}:${image.tag}`);
-    return size.trim().length === 0 ? '0B' : size.trim();
+    const json = await docker(`image ls --format '{{ json . }}' ${id.fullImage}:${id.tag}`);
+    return JSON.parse(json) as DockerImage;
+  } catch {
+    throw new Error(`Failed to load 'image ls' for ${id.fullImage}:${id.tag}`);
+  }
+}
+
+export interface DockerImageHistory {
+  Comment: string;
+  CreatedAt: string;
+  CreatedBy: string;
+  CreatedSince: string;
+  ID: string;
+  Size: string;
+}
+
+/**
+ * Reads the image history.
+ *
+ * @param id
+ */
+export async function dockerImageHistory(id: DockerId): Promise<DockerImageHistory[]> {
+  try {
+    const imageHistories = await docker(`history --format '{{ json . }}' ${id.fullImage}:${id.tag}`);
+    const histories: DockerImageHistory[] = [];
+    for (const imageHistory of imageHistories.split('\n')) {
+      if (imageHistory.trim().length > 0 ) {
+        histories.push(JSON.parse(imageHistory) as DockerImageHistory);
+      }
+    }
+    return histories;
+  } catch (e) {
+    console.log(e)
+    throw new Error(`Failed to load 'history' for ${id.fullImage}:${id.tag}`);
+  }
+}
+
+export async function dockerImageSize(imageHistory: DockerImageHistory): Promise<string> {
+  try {
+    return imageHistory.Size.trim().length === 0 ? '0B' : imageHistory.Size.trim();
   } catch {
     return '0B';
   }

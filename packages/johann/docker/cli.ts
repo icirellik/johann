@@ -20,7 +20,7 @@ export const docker = async (
       HOME: process.env.HOME,
       PATH: process.env.PATH,
     },
-    maxBuffer: 200 * 1024 * 1024,
+    maxBuffer: 4 * 1024 * 1024 * 1024,
   }
 
   const raw = await new Promise<string>((resolve, reject) => {
