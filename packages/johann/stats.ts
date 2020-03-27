@@ -16,14 +16,16 @@ export class DockerRefreshStats {
   }
 
   public logResults(): void {
-    console.log('Stats:');
-    console.log('refreshed:', this.imagesRefreshed);
-    console.log(
-      'added:', prettyBytes(this.bytesAdded),
-      'removed:', prettyBytes(this.bytesRemoved),
-      'delta:', prettyBytes(this.bytesAdded - this.bytesRemoved)
-    );
-    console.log('stable:', prettyBytes(this.bytesSteady));
-    console.log('total space used:', prettyBytes(this.bytesSteady + this.bytesAdded));
+    console.log('\nReport:');
+    console.log('==========================================================');
+    console.log('');
+    console.log('Images Refreshed:', this.imagesRefreshed);
+    console.log('    added:', prettyBytes(this.bytesAdded));
+    console.log('  removed:', prettyBytes(this.bytesRemoved));
+    console.log('    delta:', prettyBytes(this.bytesAdded - this.bytesRemoved));
+    console.log('');
+    console.log('Stable Virtual Disk:', prettyBytes(this.bytesSteady));
+    console.log('Total Virtual Disk: ', prettyBytes(this.bytesSteady + this.bytesAdded));
+    console.log('');
   }
 }

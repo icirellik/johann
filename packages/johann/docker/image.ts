@@ -3,7 +3,7 @@ const DEFAULT_REGISTRY_SERVICE = `https://${DEFAULT_REGISTRY}`;
 
 const DEFAULT_REPOSITORY = 'library';
 
-export default class DockerImage {
+export default class DockerId {
   private _service: string;
   private _repository: string;
 
@@ -49,7 +49,7 @@ export default class DockerImage {
     return this._image;
   }
 
-  static from (containerSlug: string): DockerImage {
+  static from (containerSlug: string): DockerId {
     const [ imageSlug, tag ] = containerSlug.split(':');
 
     const slugParts = imageSlug.split('/')
@@ -65,7 +65,7 @@ export default class DockerImage {
       throw new Error(`The image name could not be parsed. ${containerSlug}`);
     }
 
-    return new DockerImage(
+    return new DockerId(
       registry,
       repository,
       image,
