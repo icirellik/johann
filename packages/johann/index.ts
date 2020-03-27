@@ -24,6 +24,7 @@ import { lpad } from './util/lpad';
 import prettyBytes from './util/prettyBytes';
 import { partial, flush } from './util/log';
 import { DockerRefreshStats } from './stats';
+import unprettyBytes from './util/unprettyBytes';
 
 /**
  * Compares the remote and local docker digests, returning true if they are
@@ -284,6 +285,11 @@ async function refresh(containers: string[]): Promise<void> {
   // Wait for the pool to settle.
   poolPromise.then(() => {
     stats.logResults();
+    let totalBytes = 0;
+    for (const history of imageHistorysMap.values()) {
+      totalBytes += unprettyBytes(history.Size);
+    }
+    console.log('Total Real Size:    ', prettyBytes(totalBytes), '\n');
     logLayerStats();
     logCommandStats();
   });
