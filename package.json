@@ -4,7 +4,8 @@
   "description": "A docker compose manger, name after the fisherman and composer Johann Fischer",
   "main": "dist/index.js",
   "scripts": {
-    "build": "NODE_ENV=production tsc -p tsconfig.json"
+    "build": "NODE_ENV=production tsc -p tsconfig.json",
+    "lint": "eslint . --ext .ts"
   },
   "repository": {
     "type": "git",

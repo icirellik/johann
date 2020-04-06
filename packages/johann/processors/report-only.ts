@@ -74,7 +74,7 @@ export default class RefreshReportOnly implements Container<void> {
           if (usage && usage.length > 1) {
             const history = this.#imageHistoryStats.imageHistorysMap.get(cur);
             if (history) {
-              return prev + unprettyBytes(history.Size);
+              return prev + unprettyBytes(history.Size)
             }
           }
           return prev + 0;
