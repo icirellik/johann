@@ -4,6 +4,7 @@
  * @param lexeme
  * @param maxLength
  */
-export function lpad(lexeme: string, maxLength: number): string {
-  return lexeme.padEnd(maxLength, ' ');
+export default function lpad(lexeme: string, maxLength: number): string {
+  const rawCharacters = lexeme.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+  return lexeme.padEnd(maxLength + lexeme.length - rawCharacters.length, ' ');
 }
